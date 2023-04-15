@@ -66,17 +66,18 @@ class DAG:
         return False
 
     def __IsTransactionInSubGraph__(self, root: Transaction, transaction: Transaction):
+        isChild = False
         if root.Id == transaction.Id:
-            return True
+            isChild = True
         elif root.Children:
             isChild = False
             for c in root.Children:
                 isChild |= self.__IsTransactionInSubGraph__(c, transaction)
                 if isChild:
-                    return isChild        
+                    break   
         else:
-            return False
-
+            isChild = False
+        return isChild
 
     def FindConflicting(self, transaciton: Transaction):
         for r in self.Roots:

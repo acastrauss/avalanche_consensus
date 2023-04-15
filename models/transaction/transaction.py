@@ -77,7 +77,7 @@ class Transaction:
 
     def AreAccountsValid(self):
         # self.Lock.acquire()
-        retval = (self.AccountFrom.AccountNum == self.AccountTo.AccountNum) == False
+        retval = (self.AccountFrom.AccountNum != self.AccountTo.AccountNum)
         # self.Lock.release()
         return retval
 

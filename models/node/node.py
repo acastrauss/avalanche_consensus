@@ -51,21 +51,6 @@ class Node:
             else:
                 return None
 
-    def __VerifyWitouthKey__(self, transaction: Transaction):
-        if transaction.IsValidated():
-            return transaction
-        else:
-            isValidAmount = self.__IsAmountValid__(transaction)
-            validAccounts = self.__AreAccountsValid__(transaction)
-            if isValidAmount and validAccounts:
-                conflicting = self.__FindConflicting__(transaction)
-                if conflicting is None:
-                    return transaction
-                else:
-                    return conflicting
-            else:
-                return None
-
     def __IsSignatureValid__(self, transaction: SendingTransaction):
         try:
             transaction.SenderPublicKey.verify(
@@ -78,7 +63,7 @@ class Node:
                 hashes.SHA256()
             )
             return True
-        except InvalidSignature as ise:
+        except InvalidSignature:
             return False
 
     def __IsAmountValid__(self, transaction: Transaction):
@@ -96,7 +81,7 @@ class Node:
         myValidation = self.__VerifyWitouthKey__(localTransaction)
 
         if myValidation is None:
-            return
+            return None
 
         myPreference = localTransaction
 
@@ -126,7 +111,23 @@ class Node:
             
         self.Weight += 1
         self.DAG.InsertTransaction(myPreference)
-    
+        return myPreference
+
+    def __VerifyWitouthKey__(self, transaction: Transaction):
+        if transaction.IsValidated():
+            return transaction
+        else:
+            isValidAmount = self.__IsAmountValid__(transaction)
+            validAccounts = self.__AreAccountsValid__(transaction)
+            if isValidAmount and validAccounts:
+                conflicting = self.__FindConflicting__(transaction)
+                if conflicting is None:
+                    return transaction
+                else:
+                    return conflicting
+            else:
+                return None
+
     async def __QueryNodesAboutTransaction__(self, transaction: Transaction):
         transaction.SignTransaction(self.Key.PrivateKey)
         sendingTransaction = SendingTransaction(transaction, self.Key.PublicKey)

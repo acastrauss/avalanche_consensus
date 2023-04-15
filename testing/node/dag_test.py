@@ -62,12 +62,11 @@ class TestDag(unittest.TestCase):
         t1 = self.InitData.Transactions[0]
         tConflicting = copy.deepcopy(t1)
         tConflicting.Id += 1
-
+        self.DAG.InsertTransaction(t1)
         foundConflicting = self.DAG.FindConflicting(tConflicting)
         self.assertIsNotNone(foundConflicting)
         self.assertEqual(foundConflicting.Id, t1.Id)
 
         notConflicting = self.DAG.FindConflicting(Transaction(GetRandomAccount(), GetRandomAccount(), GetRandomAmount(MIN_AMOUNT_ACCOUNT_CREATION, MAX_AMOUNT_ACCOUNT_CREATION)))
-        foundConflicting = self.DAG.FindConflicting(notConflicting)
-        self.assertIsNone(foundConflicting)
+        self.assertIsNone(notConflicting)
         
