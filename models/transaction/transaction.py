@@ -96,17 +96,23 @@ class Transaction:
         self.IsSigned = True
         # self.Lock.release()
 
+    def HaveDirectChild(self, transaction):
+        for c in self.Children:
+            if c.Id == transaction.Id:
+                return True
+        return False
+
     def IsConflicted(self, conflictTransaction) -> bool:
         # self.Lock.acquire()
         retval = (conflictTransaction.Id != self.Id and
             conflictTransaction.AccountFrom.AccountNum == self.AccountFrom.AccountNum and
             conflictTransaction.AccountTo.AccountNum == self.AccountTo.AccountNum and
             conflictTransaction.Amount == self.Amount and
-            not self.__IsMyAncestor__(conflictTransaction))
+            not self.IsMyAncestor(conflictTransaction))
         # self.Lock.release()
         return retval
 
-    def __IsMyAncestor__(self, transaction):
+    def IsMyAncestor(self, transaction):
         # self.Lock.acquire()
         directAncestor = self.Id in transaction.GetParentIds()
 
@@ -114,7 +120,7 @@ class Transaction:
             return directAncestor
         else:
             for c in self.Children:
-                directAncestor |= c.__IsMyAncestor__(transaction)
+                directAncestor |= c.IsMyAncestor(transaction)
         # self.Lock.release()
         return directAncestor
 

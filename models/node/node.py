@@ -130,11 +130,8 @@ class Node:
     async def __QueryNodesAboutTransaction__(self, transaction: Transaction):
         transaction.SignTransaction(self.Key.PrivateKey)
         sendingTransaction = SendingTransaction(transaction, self.Key.PublicKey)
-
         selectedParticipants = random.sample(self.Participants, SAMPLE_SIZE)
-
         queryResults = {}
-
         queryingTasks = []
 
         for p in selectedParticipants:
