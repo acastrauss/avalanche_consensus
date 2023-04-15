@@ -1,3 +1,4 @@
+import copy
 import threading
 from datetime import datetime
 
@@ -27,54 +28,61 @@ class Transaction:
         self.Parents = []
         self.ParentIds = []
         self.VerificationData = VerificationData()
+        # self.Lock = threading.Lock()
 
     def AddParentId(self, parentId: int):
-        
+        # self.Lock.acquire()
         self.ParentIds.append(parentId)
-        
+        # self.Lock.release()
 
     def AddChild(self, childTransaction):
-        
+        # self.Lock.acquire()
         self.Children.append(childTransaction)
-        
+        # self.Lock.release()
 
     def AddParent(self, parentTransaction):
-        
+        # self.Lock.acquire()
         self.Parents.append(parentTransaction)
-        
+        # self.Lock.release()
 
     def IsValidated(self):
-        
+        # self.Lock.acquire()
         retval = self.VerificationData.Validated
-        
+        # self.Lock.release()
+        return retval
+
+    def GetParentIds(self):
+        # self.Lock.acquire()
+        retval = copy.deepcopy(self.ParentIds)
+        # self.Lock.release()
         return retval
 
     def GetSignature(self):
-        
+        # self.Lock.acquire()
         retval = self.Signature
-        
+        # self.Lock.release()
         return retval
 
     def GetBytes(self):
-        
+        # self.Lock.acquire()
         retval = self.TransactionBytes
-        
+        # self.Lock.release()
         return retval
 
     def IsAmountValid(self):
-        
+        # self.Lock.acquire()
         retval = self.AccountFrom.Balance > self.Amount
-        
+        # self.Lock.release()
         return retval
 
     def AreAccountsValid(self):
-        
+        # self.Lock.acquire()
         retval = (self.AccountFrom.AccountNum == self.AccountTo.AccountNum) == False
-        
+        # self.Lock.release()
         return retval
 
     def SignTransaction(self, nodePrivateKey):
-        
+        # self.Lock.acquire()
         self.TransactionBytes = str(self.__dict__).encode(Transaction.TRANSACTION_ENCODING)
         signature = nodePrivateKey.sign(
             self.TransactionBytes,
@@ -84,34 +92,34 @@ class Transaction:
             ),
             hashes.SHA256()
         )
-
         self.Signature = signature
         self.IsSigned = True
-        
+        # self.Lock.release()
 
     def IsConflicted(self, conflictTransaction) -> bool:
-        
+        # self.Lock.acquire()
         retval = (conflictTransaction.Id != self.Id and
             conflictTransaction.AccountFrom.AccountNum == self.AccountFrom.AccountNum and
             conflictTransaction.AccountTo.AccountNum == self.AccountTo.AccountNum and
             conflictTransaction.Amount == self.Amount and
             not self.__IsMyAncestor__(conflictTransaction))
-        
+        # self.Lock.release()
         return retval
 
     def __IsMyAncestor__(self, transaction):
-        directAncestor = self.Id in transaction.ParentsIds
+        # self.Lock.acquire()
+        directAncestor = self.Id in transaction.GetParentIds()
 
         if directAncestor:
             return directAncestor
         else:
             for c in self.Children:
                 directAncestor |= c.__IsMyAncestor__(transaction)
-
+        # self.Lock.release()
         return directAncestor
 
     def ResolveConsensusResult(self, consesusResult: ConsensusResult):
-        
+        # self.Lock.acquire()
         self.VerificationData.Chit = consesusResult == ConsensusResult.ACCEPTED
 
         if consesusResult == ConsensusResult.ACCEPTED:
@@ -123,9 +131,8 @@ class Transaction:
             self.VerificationData.ConsecutiveSuccesses = 1
         else:
             self.VerificationData.ConsecutiveSuccesses = 0
-
         
-
+        # self.Lock.release()
         for p in self.Parents:
             p.ResolveConsensusResult(consesusResult)
 

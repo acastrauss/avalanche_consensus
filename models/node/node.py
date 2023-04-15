@@ -1,8 +1,7 @@
 
+import asyncio
 import copy
-import queue
 import random
-import threading
 
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import hashes
@@ -32,7 +31,10 @@ class Node:
         self.Id = Node.NODE_ID
         Node.NODE_ID += 1
         
-    def TryVerifyingTransaction(self, transaction: SendingTransaction):
+    def GetValidatedTransactions(self):
+        return self.DAG.GetValidatedTransactions()    
+
+    async def TryVerifyingTransaction(self, transaction: SendingTransaction):
         if transaction.Transaction.IsValidated():
             return transaction.Transaction
         else:
@@ -88,16 +90,23 @@ class Node:
     def __FindConflicting__(self, transaction: Transaction):
         return self.DAG.FindConflicting(transaction)
 
-    def RunConsensus(self, transaction: Transaction):
-        myValidation = self.__VerifyWitouthKey__(transaction)
+    async def RunConsensus(self, transaction: Transaction):
+        localTransaction = copy.deepcopy(transaction)
+
+        myValidation = self.__VerifyWitouthKey__(localTransaction)
 
         if myValidation is None:
             return
 
-        myPreference = transaction
+        myPreference = localTransaction
+
+        queriesCnt = 0
 
         while (not myPreference.IsValidated()):
-            queryingResults = self.__QueryNodesAboutTransaction__(transaction)
+            queriesCnt += 1
+            
+            queryingTask = asyncio.create_task(self.__QueryNodesAboutTransaction__(myPreference))
+            queryingResults = await queryingTask
 
             if len(queryingResults.keys()) == 0:
                 myPreference.ResolveConsensusResult(ConsensusResult.NONE_ACCEPTED)
@@ -118,7 +127,7 @@ class Node:
         self.Weight += 1
         self.DAG.InsertTransaction(myPreference)
     
-    def __QueryNodesAboutTransaction__(self, transaction: Transaction):
+    async def __QueryNodesAboutTransaction__(self, transaction: Transaction):
         transaction.SignTransaction(self.Key.PrivateKey)
         sendingTransaction = SendingTransaction(transaction, self.Key.PublicKey)
 
@@ -126,8 +135,15 @@ class Node:
 
         queryResults = {}
 
+        queryingTasks = []
+
         for p in selectedParticipants:
-            queryResponse = p.TryVerifyingTransaction(sendingTransaction)
+            queryingTasks.append(asyncio.create_task(p.TryVerifyingTransaction(sendingTransaction)))
+            
+        results = await asyncio.gather(*queryingTasks)
+
+        for r in results:    
+            queryResponse = r
             if queryResponse is not None:
                 if queryResponse.Id in queryResults.keys():
                     queryResults[queryResponse.Id].Count += 1

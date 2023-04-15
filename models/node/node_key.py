@@ -11,5 +11,4 @@ class NodeKey:
             key_size=NodeKey.KEY_SIZE,
             backend=default_backend()
         )
-
         self.PublicKey = self.PrivateKey.public_key()
