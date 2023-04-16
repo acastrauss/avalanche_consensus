@@ -52,19 +52,7 @@ class Node:
                 return None
 
     def __IsSignatureValid__(self, transaction: SendingTransaction):
-        try:
-            transaction.SenderPublicKey.verify(
-                transaction.Transaction.GetSignature(),
-                transaction.Transaction.GetBytes(),
-                padding.PSS(
-                    mgf=padding.MGF1(hashes.SHA256()),
-                    salt_length=padding.PSS.MAX_LENGTH
-                ),
-                hashes.SHA256()
-            )
-            return True
-        except InvalidSignature:
-            return False
+        return transaction.Transaction.VerifyTransactionSignature(transaction.SenderPublicKey)
 
     def __IsAmountValid__(self, transaction: Transaction):
         return transaction.IsAmountValid()

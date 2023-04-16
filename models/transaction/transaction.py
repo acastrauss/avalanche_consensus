@@ -2,6 +2,7 @@ import copy
 import threading
 from datetime import datetime
 
+from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding
 
@@ -28,61 +29,35 @@ class Transaction:
         self.Parents = []
         self.ParentIds = []
         self.VerificationData = VerificationData()
-        # self.Lock = threading.Lock()
 
     def AddParentId(self, parentId: int):
-        # self.Lock.acquire()
         self.ParentIds.append(parentId)
-        # self.Lock.release()
 
     def AddChild(self, childTransaction):
-        # self.Lock.acquire()
         self.Children.append(childTransaction)
-        # self.Lock.release()
 
     def AddParent(self, parentTransaction):
-        # self.Lock.acquire()
         self.Parents.append(parentTransaction)
-        # self.Lock.release()
 
     def IsValidated(self):
-        # self.Lock.acquire()
-        retval = self.VerificationData.Validated
-        # self.Lock.release()
-        return retval
+        return self.VerificationData.Validated
 
     def GetParentIds(self):
-        # self.Lock.acquire()
-        retval = copy.deepcopy(self.ParentIds)
-        # self.Lock.release()
-        return retval
+        return copy.deepcopy(self.ParentIds)
 
     def GetSignature(self):
-        # self.Lock.acquire()
-        retval = self.Signature
-        # self.Lock.release()
-        return retval
+        return self.Signature
 
     def GetBytes(self):
-        # self.Lock.acquire()
-        retval = self.TransactionBytes
-        # self.Lock.release()
-        return retval
+        return self.TransactionBytes
 
     def IsAmountValid(self):
-        # self.Lock.acquire()
-        retval = self.AccountFrom.Balance > self.Amount
-        # self.Lock.release()
-        return retval
+        return self.AccountFrom.Balance > self.Amount
 
     def AreAccountsValid(self):
-        # self.Lock.acquire()
-        retval = (self.AccountFrom.AccountNum != self.AccountTo.AccountNum)
-        # self.Lock.release()
-        return retval
+        return self.AccountFrom.AccountNum != self.AccountTo.AccountNum
 
     def SignTransaction(self, nodePrivateKey):
-        # self.Lock.acquire()
         self.TransactionBytes = str(self.__dict__).encode(Transaction.TRANSACTION_ENCODING)
         signature = nodePrivateKey.sign(
             self.TransactionBytes,
@@ -94,7 +69,21 @@ class Transaction:
         )
         self.Signature = signature
         self.IsSigned = True
-        # self.Lock.release()
+
+    def VerifyTransactionSignature(self, nodePublicKey):
+        try:
+            nodePublicKey.verify(
+                self.Signature, self.TransactionBytes,
+                padding.PSS(
+                    mgf=padding.MGF1(hashes.SHA256()),
+                    salt_length=padding.PSS.MAX_LENGTH
+                ),
+                hashes.SHA256()
+            )
+            return True
+        except InvalidSignature as e:
+            print(e)
+            return False
 
     def HaveDirectChild(self, transaction):
         for c in self.Children:
@@ -103,29 +92,24 @@ class Transaction:
         return False
 
     def IsConflicted(self, conflictTransaction) -> bool:
-        # self.Lock.acquire()
         retval = (conflictTransaction.Id != self.Id and
             conflictTransaction.AccountFrom.AccountNum == self.AccountFrom.AccountNum and
             conflictTransaction.AccountTo.AccountNum == self.AccountTo.AccountNum and
             conflictTransaction.Amount == self.Amount and
             not self.IsMyAncestor(conflictTransaction))
-        # self.Lock.release()
         return retval
 
     def IsMyAncestor(self, transaction):
-        # self.Lock.acquire()
-        directAncestor = self.Id in transaction.GetParentIds()
+        directAncestor = self.HaveDirectChild(transaction)
 
         if directAncestor:
             return directAncestor
         else:
             for c in self.Children:
                 directAncestor |= c.IsMyAncestor(transaction)
-        # self.Lock.release()
         return directAncestor
 
     def ResolveConsensusResult(self, consesusResult: ConsensusResult):
-        # self.Lock.acquire()
         self.VerificationData.Chit = consesusResult == ConsensusResult.ACCEPTED
 
         if consesusResult == ConsensusResult.ACCEPTED:
@@ -138,7 +122,6 @@ class Transaction:
         else:
             self.VerificationData.ConsecutiveSuccesses = 0
         
-        # self.Lock.release()
         for p in self.Parents:
             p.ResolveConsensusResult(consesusResult)
 
